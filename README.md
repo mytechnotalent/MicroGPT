@@ -1,3 +1,9 @@
+![image](https://github.com/mytechnotalent/MicroGPT/blob/main/MicroGPT.png?raw=true)
+
+## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
+
+<br>
+
 # MicroGPT
 
 A minimal GPT implementation from scratch in PyTorch that learns to predict the next word in a sequence using self-attention and transformer blocks.
@@ -594,4 +600,5 @@ GENERATION
 Starting words: 'mary had a little'
 Generated: mary had a little lamb
 ```
+
 
