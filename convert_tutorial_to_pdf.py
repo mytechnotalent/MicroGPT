@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Convert TUTORIAL.md to PDF with beautiful formatting.
 
@@ -285,17 +286,13 @@ def convert_markdown_to_pdf(input_file: str, output_file: str):
         output_file: Path to output PDF file
     """
     print(f"📖 Reading {input_file}...")
-
     # Read markdown file
     input_path = Path(input_file)
     if not input_path.exists():
         print(f"❌ Error: {input_file} not found!")
         sys.exit(1)
-
     markdown_text = input_path.read_text(encoding="utf-8")
-
     print("🔄 Converting Markdown to HTML...")
-
     # Convert markdown to HTML with extensions
     md = markdown.Markdown(
         extensions=[
@@ -306,9 +303,7 @@ def convert_markdown_to_pdf(input_file: str, output_file: str):
             "nl2br",  # Newline to <br>
         ]
     )
-
     html_content = md.convert(markdown_text)
-
     # Create complete HTML document
     html_doc = f"""
     <!DOCTYPE html>
@@ -322,19 +317,13 @@ def convert_markdown_to_pdf(input_file: str, output_file: str):
     </body>
     </html>
     """
-
     print("🎨 Applying styles...")
-
     # Create CSS
     css = CSS(string=create_css_styles())
-
     print(f"📄 Generating PDF: {output_file}...")
-
     # Convert HTML to PDF
     HTML(string=html_doc).write_pdf(output_file, stylesheets=[css])
-
-    print(f"✅ PDF created successfully: {output_file}")
-
+    print(f"✅ PDF Created Successfully: {output_file}")
     # Get file size
     output_path = Path(output_file)
     size_mb = output_path.stat().st_size / (1024 * 1024)
@@ -356,7 +345,6 @@ def main():
         print()
         print("🎉 Conversion complete!")
         print(f"📖 You can now open: {output_file}")
-
     except ImportError as e:
         print()
         print("❌ Missing dependencies!")
@@ -366,7 +354,6 @@ def main():
         print()
         print(f"Error details: {e}")
         sys.exit(1)
-
     except Exception as e:
         print()
         print(f"❌ Error during conversion: {e}")
