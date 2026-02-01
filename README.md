@@ -1,3 +1,9 @@
+![image](https://github.com/mytechnotalent/MicroGPT/blob/main/MicroGPT.png?raw=true)
+
+## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
+
+<br>
+
 # MicroGPT
 
 A minimal GPT-style transformer language model implementation from scratch in PyTorch, designed for learning and experimentation.
