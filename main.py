@@ -7,6 +7,9 @@ batching, training loop, and text generation.
 
 Usage:
     python main.py
+
+Author: Kevin Thomas (ket189@pitt.edu)
+License: MIT
 """
 
 import math
