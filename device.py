@@ -12,6 +12,9 @@ Usage:
 
     device = get_device()
     model = MyModel().to(device)
+
+Author: Kevin Thomas (ket189@pitt.edu)
+License: MIT
 """
 
 import torch
