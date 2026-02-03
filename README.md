@@ -4,6 +4,14 @@
 
 <br>
 
+# Today's Tutorial [February 2, 2026]
+## Lesson 98: ARM-32 Course 2 (Part 33 – Debugging Double Variables)
+This tutorial will discuss debugging double variables.
+
+-> Click [HERE](https://0xinfection.github.io/reversing) to read the FREE ebook.
+
+<br>
+
 # MicroGPT
 
 > A production-ready, fully type-annotated GPT implementation from scratch in PyTorch.
