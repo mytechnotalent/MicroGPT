@@ -1,4 +1,5 @@
-"""Comprehensive Test Suite for Fine-Tuning MicroGPT.
+"""
+Comprehensive Test Suite for Fine-Tuning MicroGPT.
 
 This module provides extensive testing for all components of the fine-tuning
 functionality including data loading, model loading, checkpoint handling,
