@@ -10,6 +10,9 @@ Usage:
 
     config = load_config("config.json")
     print(config.embedding_dim)  # 32
+
+Author: Kevin Thomas (ket189@pitt.edu)
+License: MIT
 """
 
 import json
