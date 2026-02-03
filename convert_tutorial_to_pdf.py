@@ -11,6 +11,9 @@ Requirements:
 
 Usage:
     python convert_tutorial_to_pdf.py
+
+Author: Kevin Thomas (ket189@pitt.edu)
+License: MIT
 """
 
 import markdown
