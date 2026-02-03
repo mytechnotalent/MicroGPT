@@ -1,4 +1,5 @@
-"""Fine-tune MicroGPT on conversational dataset.
+"""
+Fine-tune MicroGPT on conversational dataset.
 
 This module provides functionality to fine-tune a pre-trained MicroGPT model
 on conversational data for chatbot applications.
