@@ -1,4 +1,5 @@
-"""Inference script for conversational MicroGPT.
+"""
+Inference script for conversational MicroGPT.
 
 This module provides functionality to run interactive chat sessions with a
 fine-tuned MicroGPT model for conversational AI applications.
