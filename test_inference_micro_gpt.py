@@ -1,4 +1,5 @@
-"""Comprehensive Test Suite for MicroGPT Inference.
+"""
+Comprehensive Test Suite for MicroGPT Inference.
 
 This module provides extensive testing for all components of the inference
 functionality including model loading, response generation, prompt formatting,
