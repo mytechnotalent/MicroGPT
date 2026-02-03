@@ -1,0 +1,22 @@
+{
+    "block_size": 256,
+    "embedding_dim": 896,
+    "n_heads": 14,
+    "n_layers": 16,
+    "dropout": 0.05,
+    "lr": 6e-4,
+    "min_lr": 6e-5,
+    "warmup_steps": 2000,
+    "batch_size": 8,
+    "grad_clip": 1.0,
+    "weight_decay": 0.1,
+    "epochs": 150000,
+    "finetune_lr": 1e-5,
+    "finetune_epochs": 5000,
+    "finetune_eval_interval": 100,
+    "finetune_eval_iters": 30,
+    "finetune_max_tokens": 10000000,
+    "finetune_temperature": 0.2,
+    "finetune_max_new_tokens": 30,
+    "pretrain_max_examples": 800000
+}
