@@ -21,5 +21,4 @@ htmlcov/
 .DS_Store
 
 # Generated files
-*.pdf
 checkpoints/
