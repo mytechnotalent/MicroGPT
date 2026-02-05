@@ -1,15 +1,15 @@
 """
-Configuration Management for MicroGPT
+Configuration Management for GPT-2 Medium Model.
 
-This module provides configuration loading and management for the MicroGPT
-language model. It loads hyperparameters from a JSON file and provides
-a typed dataclass for easy access.
+This module provides configuration loading and management for the GPT-2
+language model architecture. It loads hyperparameters from a JSON file
+and provides a typed dataclass for easy access.
 
 Usage:
-    from config import load_config, Config
+    from config import load_config, GPTConfig
 
     config = load_config("config.json")
-    print(config.embedding_dim)  # 32
+    print(config.n_embd)  # 1024
 
 Author: Kevin Thomas (ket189@pitt.edu)
 License: MIT
@@ -22,133 +22,142 @@ from typing import Union
 
 
 @dataclass
-class Config:
+class GPTConfig:
     """
-    Configuration container for MicroGPT hyperparameters.
+    Configuration container for GPT-2 Medium model architecture (355M params).
 
-    This dataclass holds all the hyperparameters needed to configure the
-    MicroGPT model architecture and training process. Values are typically
-    loaded from a JSON configuration file.
+    This dataclass holds all hyperparameters needed to configure the GPT-2
+    model architecture and training process. Follows OpenAI GPT-2 naming
+    conventions for compatibility.
 
-    Args:
-        block_size: Maximum sequence length (context window size). Determines
-            how many tokens the model can attend to at once.
-        embedding_dim: Dimension of token and position embeddings (d_model).
-            This is the hidden size throughout the Transformer.
-        n_heads: Number of attention heads per Transformer block. Must evenly
-            divide embedding_dim.
-        n_layers: Number of stacked Transformer blocks (depth of the model).
+    Architecture Parameters:
+        block_size: Maximum sequence length (context window). GPT-2 uses 1024.
+        vocab_size: Vocabulary size matching tiktoken gpt2/r50k_base (50257).
+        n_layer: Number of transformer blocks (depth). GPT-2 Medium uses 24.
+        n_head: Number of attention heads (parallel focus). GPT-2 Medium uses 16.
+        n_embd: Embedding dimension size (width). GPT-2 Medium uses 1024.
         dropout: Dropout probability for regularization.
+        bias: Whether to use bias in Linear layers and LayerNorms.
+
+    Training Parameters:
         lr: Peak learning rate for the optimizer.
-        min_lr: Minimum learning rate after decay.
-        warmup_steps: Number of steps for learning rate warmup.
+        min_lr: Minimum learning rate after cosine decay.
+        warmup_steps: Number of steps for linear learning rate warmup.
         batch_size: Number of sequences per training batch.
         grad_clip: Maximum gradient norm for gradient clipping.
         weight_decay: L2 regularization weight decay coefficient.
         epochs: Number of training iterations (steps).
+        eval_interval: Steps between validation evaluations.
+        eval_iters: Number of batches to average for validation loss.
 
-    Attributes:
-        block_size: Maximum sequence length.
-        embedding_dim: Embedding dimension.
-        n_heads: Number of attention heads.
-        n_layers: Number of Transformer layers.
-        dropout: Dropout probability.
-        lr: Peak learning rate.
-        min_lr: Minimum learning rate.
-        warmup_steps: Warmup steps count.
-        batch_size: Training batch size.
-        grad_clip: Gradient clipping threshold.
-        weight_decay: Weight decay coefficient.
-        epochs: Number of training epochs.
+    Fine-tuning Parameters:
+        finetune_lr: Learning rate for fine-tuning (lower than pre-training).
+        finetune_epochs: Number of fine-tuning iterations.
+        finetune_eval_interval: Steps between fine-tuning evaluations.
+        finetune_eval_iters: Batches to average for fine-tuning validation.
+        finetune_max_tokens: Maximum tokens to load for fine-tuning dataset.
+        finetune_temperature: Sampling temperature for generation.
+        finetune_top_p: Nucleus sampling probability threshold.
+        finetune_max_new_tokens: Maximum tokens to generate per response.
+
+    Data Parameters:
+        pretrain_max_examples: Maximum examples to load from pre-training dataset.
 
     Example:
-        >>> config = Config(
-        ...     block_size=128,
-        ...     embedding_dim=64,
-        ...     n_heads=4,
-        ...     n_layers=3,
-        ...     dropout=0.1,
-        ...     lr=1e-3,
-        ...     epochs=1000
+        >>> config = GPTConfig(
+        ...     block_size=1024, vocab_size=50257, n_layer=24,
+        ...     n_head=16, n_embd=1024, dropout=0.1, bias=True,
+        ...     lr=3e-4, min_lr=3e-5, warmup_steps=2000,
+        ...     batch_size=4, grad_clip=1.0, weight_decay=0.1,
+        ...     epochs=300000, eval_interval=500, eval_iters=50,
+        ...     finetune_lr=1e-5, finetune_epochs=10000,
+        ...     finetune_eval_interval=100, finetune_eval_iters=50,
+        ...     finetune_max_tokens=20000000, finetune_temperature=0.7,
+        ...     finetune_top_p=0.9, finetune_max_new_tokens=150,
+        ...     pretrain_max_examples=20000000
         ... )
-        >>> print(config.embedding_dim)
-        64
+        >>> print(config.n_embd)
+        1024
 
     Note:
-        For production use, consider adding validation to ensure n_heads
-        evenly divides embedding_dim.
+        GPT-2 Medium: n_layer=24, n_head=16, n_embd=1024 (~355M params)
+        GPT-2 Small: n_layer=12, n_head=12, n_embd=768 (~124M params)
+        GPT-2 Large: n_layer=36, n_head=20, n_embd=1280 (~774M params)
     """
 
-    # Maximum sequence length (context window size)
     block_size: int
-    # Dimension of token and position embeddings
-    embedding_dim: int
-    # Number of attention heads per Transformer block
-    n_heads: int
-    # Number of stacked Transformer blocks
-    n_layers: int
-    # Dropout probability for regularization
+    vocab_size: int
+    n_layer: int
+    n_head: int
+    n_embd: int
     dropout: float
-    # Peak learning rate for the optimizer
+    bias: bool
     lr: float
-    # Minimum learning rate after decay
     min_lr: float
-    # Number of steps for learning rate warmup
     warmup_steps: int
-    # Number of sequences per training batch
     batch_size: int
-    # Maximum gradient norm for gradient clipping
     grad_clip: float
-    # L2 regularization weight decay coefficient
     weight_decay: float
-    # Number of training iterations
     epochs: int
-    # Fine-tuning learning rate
+    eval_interval: int
+    eval_iters: int
     finetune_lr: float
-    # Fine-tuning epochs
     finetune_epochs: int
-    # Fine-tuning evaluation interval
     finetune_eval_interval: int
-    # Fine-tuning evaluation iterations
     finetune_eval_iters: int
-    # Fine-tuning max tokens to load
     finetune_max_tokens: int
-    # Fine-tuning temperature for generation
     finetune_temperature: float
-    # Fine-tuning max new tokens to generate
+    finetune_top_p: float
     finetune_max_new_tokens: int
-    # Pre-training max examples from dataset
     pretrain_max_examples: int
 
     def __post_init__(self) -> None:
         """
-        Validate configuration after initialization.
+        Validate configuration parameters after initialization.
+
+        Ensures architectural constraints are satisfied for proper model
+        operation, specifically that n_embd is evenly divisible by n_head.
 
         Raises:
-            ValueError: If embedding_dim is not divisible by n_heads.
+            ValueError: If n_embd is not divisible by n_head.
         """
-        # Check that embedding_dim is evenly divisible by n_heads for multi-head attention
-        if self.embedding_dim % self.n_heads != 0:
-            # Raise ValueError with descriptive message if validation fails
+        if self.n_embd % self.n_head != 0:
             raise ValueError(
-                f"embedding_dim ({self.embedding_dim}) must be divisible by "
-                f"n_heads ({self.n_heads})"
+                f"n_embd ({self.n_embd}) must be divisible by n_head ({self.n_head})"
             )
 
 
-def load_config(path: Union[str, Path] = "config.json") -> Config:
+def _read_json_file(path: Union[str, Path]) -> dict:
     """
-    Load configuration from a JSON file.
+    Read and parse a JSON file into a dictionary.
 
-    Reads a JSON configuration file and returns a Config dataclass instance
-    with the loaded hyperparameters.
+    Args:
+        path: Path to the JSON configuration file.
+
+    Returns:
+        Dictionary containing parsed JSON data.
+
+    Raises:
+        FileNotFoundError: If the configuration file does not exist.
+        json.JSONDecodeError: If the file contains invalid JSON.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_config(path: Union[str, Path] = "config.json") -> GPTConfig:
+    """
+    Load GPT-2 configuration from a JSON file.
+
+    Reads a JSON configuration file and returns a GPTConfig dataclass
+    instance with the loaded hyperparameters for GPT-2 architecture.
 
     Args:
         path: Path to the JSON configuration file. Can be a string or Path
             object. Defaults to "config.json" in the current directory.
 
     Returns:
-        A Config instance populated with values from the JSON file.
+        A GPTConfig instance populated with values from the JSON file.
 
     Raises:
         FileNotFoundError: If the configuration file does not exist.
@@ -159,58 +168,9 @@ def load_config(path: Union[str, Path] = "config.json") -> Config:
     Example:
         >>> config = load_config("config.json")
         >>> print(config.block_size)
-        6
-        >>> print(config.lr)
-        0.001
-
-    Note:
-        The JSON file must contain all required keys: block_size, embedding_dim,
-        n_heads, n_layers, lr, and epochs.
+        1024
+        >>> print(config.n_embd)
+        1024
     """
-    # Open the JSON file and parse its contents into a dictionary
-    with open(path, "r", encoding="utf-8") as f:
-        # Parse JSON file contents into Python dictionary
-        data = json.load(f)
-    # Create and return Config instance with values from the dictionary
-    return Config(
-        # Set block_size from JSON data
-        block_size=data["block_size"],
-        # Set embedding_dim from JSON data
-        embedding_dim=data["embedding_dim"],
-        # Set n_heads from JSON data
-        n_heads=data["n_heads"],
-        # Set n_layers from JSON data
-        n_layers=data["n_layers"],
-        # Set dropout from JSON data
-        dropout=data["dropout"],
-        # Set lr from JSON data
-        lr=data["lr"],
-        # Set min_lr from JSON data
-        min_lr=data["min_lr"],
-        # Set warmup_steps from JSON data
-        warmup_steps=data["warmup_steps"],
-        # Set batch_size from JSON data
-        batch_size=data["batch_size"],
-        # Set grad_clip from JSON data
-        grad_clip=data["grad_clip"],
-        # Set weight_decay from JSON data
-        weight_decay=data["weight_decay"],
-        # Set epochs from JSON data
-        epochs=data["epochs"],
-        # Set finetune_lr from JSON data
-        finetune_lr=data["finetune_lr"],
-        # Set finetune_epochs from JSON data
-        finetune_epochs=data["finetune_epochs"],
-        # Set finetune_eval_interval from JSON data
-        finetune_eval_interval=data["finetune_eval_interval"],
-        # Set finetune_eval_iters from JSON data
-        finetune_eval_iters=data["finetune_eval_iters"],
-        # Set finetune_max_tokens from JSON data
-        finetune_max_tokens=data["finetune_max_tokens"],
-        # Set finetune_temperature from JSON data
-        finetune_temperature=data["finetune_temperature"],
-        # Set finetune_max_new_tokens from JSON data
-        finetune_max_new_tokens=data["finetune_max_new_tokens"],
-        # Set pretrain_max_examples from JSON data
-        pretrain_max_examples=data["pretrain_max_examples"],
-    )
+    data = _read_json_file(path)
+    return GPTConfig(**data)

@@ -1,8 +1,8 @@
 """
-Inference script for conversational MicroGPT.
+Inference script for conversational GPT-2.
 
 This module provides functionality to run interactive chat sessions with a
-fine-tuned MicroGPT model for conversational AI applications.
+fine-tuned GPT-2 model for conversational AI applications.
 
 Author: Kevin Thomas (ket189@pitt.edu)
 License: MIT
@@ -12,7 +12,7 @@ import tiktoken
 import torch
 from typing import List, Tuple
 from config import load_config
-from micro_gpt import MicroGPT
+from micro_gpt import GPT2, GPT2Config
 
 
 def _load_tokenizer():
@@ -50,55 +50,57 @@ def _get_device() -> str:
 
 def _create_model(
     vocab_size: int,
-    embedding_dim: int,
+    n_embd: int,
     block_size: int,
-    n_heads: int,
-    n_layers: int,
+    n_head: int,
+    n_layer: int,
     dropout: float,
     device: str,
-) -> MicroGPT:
-    """Create MicroGPT model architecture.
+) -> GPT2:
+    """Create GPT-2 model architecture.
 
     Args:
         vocab_size: Vocabulary size.
-        embedding_dim: Model embedding dimension.
+        n_embd: Model embedding dimension.
         block_size: Context window size.
-        n_heads: Number of attention heads.
-        n_layers: Number of transformer blocks.
+        n_head: Number of attention heads.
+        n_layer: Number of transformer blocks.
         dropout: Dropout rate.
         device: Device to load model on.
 
     Returns:
-        MicroGPT model instance.
+        GPT2 model instance.
 
     Example:
         >>> model = _create_model(256, 128, 64, 4, 2, 0.1, "cpu")
-        >>> isinstance(model, MicroGPT)
+        >>> isinstance(model, GPT2)
         True
     """
-    return MicroGPT(
-        vocab_size=vocab_size,
-        embedding_dim=embedding_dim,
+    config = GPT2Config(
         block_size=block_size,
-        n_heads=n_heads,
-        n_layers=n_layers,
+        vocab_size=vocab_size,
+        n_layer=n_layer,
+        n_head=n_head,
+        n_embd=n_embd,
         dropout=dropout,
-    ).to(device)
+        bias=True,
+    )
+    return GPT2(config).to(device)
 
 
-def load_finetuned_model(checkpoint_path: str, device: str) -> MicroGPT:
-    """Load fine-tuned MicroGPT model from checkpoint.
+def load_finetuned_model(checkpoint_path: str, device: str) -> GPT2:
+    """Load fine-tuned GPT-2 model from checkpoint.
 
     Args:
         checkpoint_path: Path to fine-tuned checkpoint file.
         device: Device to load model on.
 
     Returns:
-        Loaded MicroGPT model in eval mode.
+        Loaded GPT-2 model in eval mode.
 
     Example:
         >>> model = load_finetuned_model("checkpoints/finetuned_best_val.pt", "cpu")
-        >>> isinstance(model, MicroGPT)
+        >>> isinstance(model, GPT2)
         True
     """
     print(f"Loading fine-tuned model from {checkpoint_path}...")
@@ -106,10 +108,10 @@ def load_finetuned_model(checkpoint_path: str, device: str) -> MicroGPT:
     cfg = load_config("config.json")
     model = _create_model(
         50257,
-        cfg.embedding_dim,
+        cfg.n_embd,
         cfg.block_size,
-        cfg.n_heads,
-        cfg.n_layers,
+        cfg.n_head,
+        cfg.n_layer,
         cfg.dropout,
         device,
     )
@@ -166,30 +168,33 @@ def _extract_response(full_text: str) -> str:
 
 
 def generate_response(
-    model: MicroGPT,
+    model: GPT2,
     tokenizer,
     conversation_history: List[Tuple[str, str]],
     user_input: str,
     device: str,
     max_tokens: int = 50,
     temperature: float = 0.7,
+    top_p: float = 0.9,
 ) -> str:
     """Generate conversational response from user input.
 
     Args:
-        model: Fine-tuned MicroGPT model.
+        model: Fine-tuned GPT-2 model.
         tokenizer: Tokenizer with encode/decode methods.
         conversation_history: Previous conversation turns.
         user_input: Current user message.
         device: Device model is on.
         max_tokens: Maximum tokens to generate.
         temperature: Sampling temperature.
+        top_p: Nucleus sampling probability threshold.
 
     Returns:
         Generated assistant response.
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> tokenizer = _load_tokenizer()
         >>> response = generate_response(model, tokenizer, [], "Hello", "cpu", 10, 0.7)
         >>> isinstance(response, str)
@@ -200,7 +205,7 @@ def generate_response(
     context = torch.tensor([tokens], dtype=torch.long).to(device)
     with torch.no_grad():
         output = model.generate(
-            context, max_new_tokens=max_tokens, temperature=temperature
+            context, max_new_tokens=max_tokens, temperature=temperature, top_p=top_p
         )
     full_text = tokenizer.decode(output[0].tolist())
     return _extract_response(full_text)
@@ -293,26 +298,29 @@ def _print_response(response: str) -> None:
 
 
 def run_chat_loop(
-    model: MicroGPT,
+    model: GPT2,
     tokenizer,
     device: str,
     max_tokens: int = 50,
     temperature: float = 0.7,
+    top_p: float = 0.9,
 ) -> None:
-    """Run interactive chat loop with MicroGPT.
+    """Run interactive chat loop with GPT-2.
 
     Args:
-        model: Fine-tuned MicroGPT model.
+        model: Fine-tuned GPT-2 model.
         tokenizer: Tokenizer for encoding/decoding.
         device: Device model is on.
         max_tokens: Maximum tokens per response.
         temperature: Sampling temperature.
+        top_p: Nucleus sampling probability threshold.
 
     Returns:
         None
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> tokenizer = _load_tokenizer()
         >>> # run_chat_loop(model, tokenizer, "cpu", 10, 0.7)  # Interactive
         >>> pass
@@ -338,6 +346,7 @@ def run_chat_loop(
             device,
             max_tokens,
             temperature,
+            top_p,
         )
         _print_response(response)
         conversation_history.append((user_input, response))
@@ -363,7 +372,7 @@ def _get_checkpoint_path() -> str:
 
 
 def main() -> None:
-    """Main inference script for conversational MicroGPT.
+    """Main inference script for conversational GPT-2.
 
     Returns:
         None
@@ -377,7 +386,15 @@ def main() -> None:
     checkpoint_path = _get_checkpoint_path()
     model = load_finetuned_model(checkpoint_path, device)
     tokenizer = _load_tokenizer()
-    run_chat_loop(model, tokenizer, device, max_tokens=50, temperature=0.7)
+    cfg = load_config("config.json")
+    run_chat_loop(
+        model,
+        tokenizer,
+        device,
+        max_tokens=cfg.finetune_max_new_tokens,
+        temperature=cfg.finetune_temperature,
+        top_p=cfg.finetune_top_p,
+    )
 
 
 if __name__ == "__main__":

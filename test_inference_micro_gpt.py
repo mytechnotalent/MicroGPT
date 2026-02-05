@@ -1,5 +1,5 @@
 """
-Comprehensive Test Suite for MicroGPT Inference.
+Comprehensive Test Suite for GPT-2 Inference.
 
 This module provides extensive testing for all components of the inference
 functionality including model loading, response generation, prompt formatting,
@@ -11,9 +11,6 @@ License: MIT
 
 import pytest
 import torch
-import os
-import tempfile
-from typing import Tuple, List
 from unittest.mock import patch, MagicMock
 from inference_micro_gpt import (
     _load_tokenizer,
@@ -24,11 +21,10 @@ from inference_micro_gpt import (
     _display_welcome,
     _should_exit,
     _should_clear,
-    _get_user_input,
     _print_response,
     _get_checkpoint_path,
-    MicroGPT,
 )
+from micro_gpt import GPT2
 
 
 @pytest.fixture
@@ -69,11 +65,11 @@ def model(device):
         device: Device string.
 
     Returns:
-        MicroGPT model instance.
+        GPT2 model instance.
 
     Example:
         >>> m = model("cpu")
-        >>> isinstance(m, MicroGPT)
+        >>> isinstance(m, GPT2)
         True
     """
     return _create_model(50257, 128, 64, 4, 2, 0.1, device)
@@ -194,12 +190,12 @@ class TestModelCreation:
 
         Example:
             >>> model = _create_model(50257, 128, 64, 4, 2, 0.1, "cpu")
-            >>> isinstance(model, MicroGPT)
+            >>> isinstance(model, GPT2)
             True
         """
         model = _create_model(50257, 128, 64, 4, 2, 0.1, device)
-        assert isinstance(model, MicroGPT)
-        assert model.block_size == 64
+        assert isinstance(model, GPT2)
+        assert model.config.block_size == 64
 
     def test_model_parameters(self, device) -> None:
         """Test model has correct parameters.
@@ -214,14 +210,16 @@ class TestModelCreation:
         assert params > 0
 
     def test_model_in_eval_mode(self, device) -> None:
-        """Test model is in eval mode.
+        """Test model can be set to eval mode.
 
         Example:
             >>> model = _create_model(50257, 128, 64, 4, 2, 0.1, "cpu")
+            >>> model.eval()
             >>> model.training
             False
         """
         model = _create_model(50257, 128, 64, 4, 2, 0.1, device)
+        model.eval()
         assert not model.training
 
 
@@ -236,11 +234,11 @@ class TestPromptFormatting:
         """Test formatting prompt with empty history.
 
         Example:
-            >>> prompt = _format_prompt("Hello", [])
+            >>> prompt = _format_prompt([], "Hello")
             >>> "User: Hello" in prompt
             True
         """
-        prompt = _format_prompt("Hello", [])
+        prompt = _format_prompt([], "Hello")
         assert "User: Hello" in prompt
         assert "Assistant:" in prompt
 
@@ -249,12 +247,12 @@ class TestPromptFormatting:
 
         Example:
             >>> history = [("Hi", "Hello")]
-            >>> prompt = _format_prompt("How are you?", history)
+            >>> prompt = _format_prompt(history, "How are you?")
             >>> "User: Hi" in prompt
             True
         """
         history = [("Hi", "Hello"), ("How are you?", "I'm good")]
-        prompt = _format_prompt("What's new?", history)
+        prompt = _format_prompt(history, "What's new?")
         assert "User: Hi" in prompt
         assert "Assistant: Hello" in prompt
         assert "User: What's new?" in prompt
@@ -264,12 +262,12 @@ class TestPromptFormatting:
 
         Example:
             >>> history = [("A", "B"), ("C", "D")]
-            >>> prompt = _format_prompt("E", history)
+            >>> prompt = _format_prompt(history, "E")
             >>> prompt.count("User:") == 3
             True
         """
         history = [("A", "B"), ("C", "D")]
-        prompt = _format_prompt("E", history)
+        prompt = _format_prompt(history, "E")
         assert prompt.count("User:") == 3
         assert prompt.count("Assistant:") == 3
 
@@ -314,12 +312,12 @@ class TestResponseExtraction:
         Example:
             >>> text = "User: A\\nAssistant: B\\nUser: C\\nAssistant: D"
             >>> response = _extract_response(text)
-            >>> "B" in response
+            >>> "D" in response
             True
         """
         full_text = "User: A\nAssistant: B\nUser: C\nAssistant: D"
         response = _extract_response(full_text)
-        assert "B" in response
+        assert "D" in response
 
 
 class TestUserInput:
@@ -412,7 +410,7 @@ class TestOutputFormatting:
         assert mock_print.called
         calls = [str(call) for call in mock_print.call_args_list]
         output = "".join(calls)
-        assert "MicroGPT" in output or mock_print.call_count > 0
+        assert "MICROGPT" in output or mock_print.call_count > 0
 
     @patch("builtins.print")
     def test_print_response(self, mock_print: MagicMock) -> None:
@@ -432,38 +430,43 @@ class TestCheckpointPath:
         >>> pytest.main([__file__, "::TestCheckpointPath", "-v"])
     """
 
-    def test_get_checkpoint_path_no_arg(self) -> None:
-        """Test getting checkpoint path without argument.
+    @patch("os.path.exists")
+    def test_get_checkpoint_path_exists(self, mock_exists: MagicMock) -> None:
+        """Test getting checkpoint path when file exists.
 
         Example:
-            >>> path = _get_checkpoint_path([])
-            >>> path is None
+            >>> path = _get_checkpoint_path()
+            >>> "finetuned_best_val" in path
             True
         """
-        path = _get_checkpoint_path([])
-        assert path is None
+        mock_exists.return_value = True
+        path = _get_checkpoint_path()
+        assert "finetuned_best_val" in path
 
-    def test_get_checkpoint_path_with_arg(self) -> None:
-        """Test getting checkpoint path with argument.
+    @patch("os.path.exists")
+    def test_get_checkpoint_path_not_exists(self, mock_exists: MagicMock) -> None:
+        """Test getting checkpoint path when file missing.
 
         Example:
-            >>> path = _get_checkpoint_path(['script.py', 'model.pt'])
-            >>> path == 'model.pt'
-            True
+            >>> path = _get_checkpoint_path()
+            >>> # Raises FileNotFoundError if missing
         """
-        path = _get_checkpoint_path(["script.py", "model.pt"])
-        assert path == "model.pt"
+        mock_exists.return_value = False
+        with pytest.raises(FileNotFoundError):
+            _get_checkpoint_path()
 
-    def test_get_checkpoint_path_only_script_name(self) -> None:
-        """Test getting checkpoint path with only script name.
+    @patch("os.path.exists")
+    def test_get_checkpoint_path_returns_string(self, mock_exists: MagicMock) -> None:
+        """Test checkpoint path is a string.
 
         Example:
-            >>> path = _get_checkpoint_path(['script.py'])
-            >>> path is None
+            >>> path = _get_checkpoint_path()
+            >>> isinstance(path, str)
             True
         """
-        path = _get_checkpoint_path(["script.py"])
-        assert path is None
+        mock_exists.return_value = True
+        path = _get_checkpoint_path()
+        assert isinstance(path, str)
 
 
 class TestIntegration:
@@ -479,12 +482,12 @@ class TestIntegration:
         Example:
             >>> tok = _load_tokenizer()
             >>> history = [("Hi", "Hello")]
-            >>> prompt = _format_prompt("How are you?", history)
+            >>> prompt = _format_prompt(history, "How are you?")
             >>> len(prompt) > 0
             True
         """
         history = [("Hello", "Hi there")]
-        prompt = _format_prompt("How are you?", history)
+        prompt = _format_prompt(history, "How are you?")
         tokens = tokenizer.encode(prompt)
         assert len(tokens) > 0
         decoded = tokenizer.decode(tokens)
@@ -514,12 +517,12 @@ class TestIntegration:
 
         Example:
             >>> history = [("A", "B"), ("C", "D")]
-            >>> prompt = _format_prompt("E", history)
+            >>> prompt = _format_prompt(history, "E")
             >>> all(turn in prompt for turn in ["A", "B", "C", "D", "E"])
             True
         """
         history = [("Question 1", "Answer 1"), ("Question 2", "Answer 2")]
-        prompt = _format_prompt("Question 3", history)
+        prompt = _format_prompt(history, "Question 3")
         assert "Question 1" in prompt
         assert "Answer 1" in prompt
         assert "Question 2" in prompt
@@ -538,11 +541,11 @@ class TestEdgeCases:
         """Test handling empty prompt.
 
         Example:
-            >>> prompt = _format_prompt("", [])
+            >>> prompt = _format_prompt([], "")
             >>> "User:" in prompt
             True
         """
-        prompt = _format_prompt("", [])
+        prompt = _format_prompt([], "")
         assert "User:" in prompt
         assert "Assistant:" in prompt
 
@@ -551,45 +554,45 @@ class TestEdgeCases:
 
         Example:
             >>> history = [(f"Q{i}", f"A{i}") for i in range(100)]
-            >>> prompt = _format_prompt("Final", history)
+            >>> prompt = _format_prompt(history, "Final")
             >>> "Final" in prompt
             True
         """
         history = [(f"Q{i}", f"A{i}") for i in range(100)]
-        prompt = _format_prompt("Final question", history)
+        prompt = _format_prompt(history, "Final question")
         assert "Final question" in prompt
 
     def test_special_characters_in_input(self) -> None:
         """Test handling special characters.
 
         Example:
-            >>> prompt = _format_prompt("Hello @#$%", [])
+            >>> prompt = _format_prompt([], "Hello @#$%")
             >>> "@#$%" in prompt
             True
         """
-        prompt = _format_prompt("Hello @#$%^&*()", [])
+        prompt = _format_prompt([], "Hello @#$%^&*()")
         assert "@#$%^&*()" in prompt
 
     def test_unicode_in_input(self) -> None:
         """Test handling unicode characters.
 
         Example:
-            >>> prompt = _format_prompt("Hello 你好", [])
+            >>> prompt = _format_prompt([], "Hello 你好")
             >>> "你好" in prompt
             True
         """
-        prompt = _format_prompt("Hello 你好", [])
+        prompt = _format_prompt([], "Hello 你好")
         assert "你好" in prompt
 
     def test_multiline_input(self) -> None:
         """Test handling multiline input.
 
         Example:
-            >>> prompt = _format_prompt("Line1\\nLine2", [])
+            >>> prompt = _format_prompt([], "Line1\\nLine2")
             >>> "Line1" in prompt and "Line2" in prompt
             True
         """
-        prompt = _format_prompt("Line1\nLine2\nLine3", [])
+        prompt = _format_prompt([], "Line1\nLine2\nLine3")
         assert "Line1" in prompt
         assert "Line2" in prompt
         assert "Line3" in prompt

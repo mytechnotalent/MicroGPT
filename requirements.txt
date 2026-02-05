@@ -7,7 +7,5 @@ datasets>=2.14.0
 pytest>=7.4.0
 pytest-cov>=4.1.0
 
-# PDF Generation
-markdown>=3.5.0
-weasyprint>=60.0
-pygments>=2.16.0
+# Black for code formatting
+black>=23.3.0

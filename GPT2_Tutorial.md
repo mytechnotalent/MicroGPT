@@ -1,9 +1,11 @@
-# MicroGPT Tutorial: Understanding GPT from Scratch
+# GPT-2 Tutorial: Understanding GPT from Scratch
 
 A complete guide to understanding every component of a GPT (Generative Pre-trained Transformer) language model, explained as if you're learning it for the first time.
 
 **Author:** Kevin Thomas (ket189@pitt.edu)  
 **License:** MIT
+
+**Note:** This tutorial uses simplified, educational variable names (like `embedding_dim`) for clarity. The production code in `micro_gpt.py` follows OpenAI GPT-2 naming conventions (`n_embd`, `n_head`, `n_layer`).
 
 ---
 
@@ -127,7 +129,7 @@ The more numbers, the more detailed the description!
 ### In Our Code
 
 ```python
-class MicroGPT(nn.Module):
+class GPT2(nn.Module):
     def __init__(self, vocab_size=50257, embedding_dim=384, ...):
         # Create embedding table: vocab_size × embedding_dim
         self.token_embedding = nn.Embedding(vocab_size, embedding_dim)
@@ -1052,7 +1054,7 @@ Each level builds on the previous ones!
 
 ### The Full Picture
 
-Now let's put **everything** together into the complete MicroGPT architecture:
+Now let's put **everything** together into the complete GPT-2 architecture:
 
 ```
 Text Input: "The cat sat"
@@ -1195,7 +1197,7 @@ logits = self.head(x)  # (B, T, vocab_size)
 ### The Complete Forward Pass
 
 ```python
-class MicroGPT(nn.Module):
+class GPT2(nn.Module):
     def forward(self, idx, targets=None):
         # Phase 1: Embed tokens with positions
         x = self._embed_tokens(idx)  # (B, T, 384)
@@ -1803,7 +1805,7 @@ Continue each beam...
 Pick the sequence with highest total probability!
 ```
 
-Not implemented in MicroGPT, but used in some applications.
+Not implemented in GPT-2, but used in some applications.
 
 **Key Point**: Generation is the reverse of training - instead of predicting the next token from known text, we use the model's learned predictions to create new text autoregressively, with temperature controlling the balance between coherence and creativity.
 
@@ -2099,10 +2101,10 @@ You now understand every component of GPT:
 
 ### Next Steps
 
-1. **Run the code**: Train your own MicroGPT!
+1. **Run the code**: Train your own GPT-2!
 2. **Experiment**: Try different hyperparameters
 3. **Visualize**: Plot attention weights to see what the model focuses on
-4. **Scale up**: Train a bigger model (more layers, larger embedding_dim)
+4. **Scale up**: Train a bigger model (more layers, larger n_embd)
 5. **Fine-tune**: Train on specific data (code, poems, dialogue)
 
 ### Key Takeaway

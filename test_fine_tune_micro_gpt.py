@@ -1,5 +1,5 @@
 """
-Comprehensive Test Suite for Fine-Tuning MicroGPT.
+Comprehensive Test Suite for Fine-Tuning GPT-2.
 
 This module provides extensive testing for all components of the fine-tuning
 functionality including data loading, model loading, checkpoint handling,
@@ -12,8 +12,7 @@ License: MIT
 import pytest
 import torch
 import os
-import tempfile
-from typing import Tuple, List
+from unittest.mock import patch, MagicMock
 from fine_tune_micro_gpt import (
     _load_tokenizer,
     _format_conversation,
@@ -25,8 +24,8 @@ from fine_tune_micro_gpt import (
     _handle_checkpoint,
     _extract_assistant_response,
     _create_config,
-    MicroGPT,
 )
+from micro_gpt import GPT2, GPT2Config
 
 
 @pytest.fixture
@@ -75,7 +74,8 @@ def temp_checkpoint(tmp_path):
         True
     """
     checkpoint_path = tmp_path / "test_checkpoint.pt"
-    model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+    config = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+    model = GPT2(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
     torch.save(
         {
@@ -285,12 +285,12 @@ class TestModelLoading:
 
         Example:
             >>> model = _create_model_architecture(256, 128, 64, 4, 2, 0.1, "cpu")
-            >>> isinstance(model, MicroGPT)
+            >>> isinstance(model, GPT2)
             True
         """
         model = _create_model_architecture(256, 128, 64, 4, 2, 0.1, device)
-        assert isinstance(model, MicroGPT)
-        assert model.block_size == 64
+        assert isinstance(model, GPT2)
+        assert model.config.block_size == 64
 
     def test_model_parameters(self, device) -> None:
         """Test model has correct parameters.
@@ -343,7 +343,8 @@ class TestCheckpointing:
         """Test checkpoint handling with improvement.
 
         Example:
-            >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+            >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+            >>> model = GPT2(cfg)
             >>> opt = torch.optim.AdamW(model.parameters(), lr=1e-5)
             >>> best, is_best = _handle_checkpoint(2.5, 3.0, model, opt, 100)
             >>> is_best
@@ -400,22 +401,47 @@ class TestConfiguration:
         >>> pytest.main([__file__, "::TestConfiguration", "-v"])
     """
 
-    def test_create_config(self) -> None:
+    @patch("fine_tune_micro_gpt._find_best_checkpoint")
+    @patch("fine_tune_micro_gpt.load_config")
+    def test_create_config(
+        self, mock_load_config: MagicMock, mock_find_checkpoint: MagicMock
+    ) -> None:
         """Test creating configuration dictionary.
 
         Example:
             >>> config = _create_config()
-            >>> config['epochs'] == 2000
+            >>> config['epochs'] == 10000
             True
         """
+        mock_cfg = MagicMock()
+        mock_cfg.block_size = 1024
+        mock_cfg.n_embd = 1024
+        mock_cfg.n_head = 16
+        mock_cfg.n_layer = 24
+        mock_cfg.dropout = 0.1
+        mock_cfg.batch_size = 4
+        mock_cfg.finetune_lr = 1e-5
+        mock_cfg.finetune_epochs = 10000
+        mock_cfg.finetune_eval_interval = 100
+        mock_cfg.finetune_eval_iters = 50
+        mock_cfg.finetune_max_tokens = 20000000
+        mock_cfg.finetune_temperature = 0.7
+        mock_cfg.finetune_max_new_tokens = 150
+        mock_cfg.finetune_top_p = 0.9
+        mock_load_config.return_value = mock_cfg
+        mock_find_checkpoint.return_value = "checkpoints/best_val.pt"
         config = _create_config()
         assert isinstance(config, dict)
         assert "epochs" in config
-        assert config["epochs"] == 2000
+        assert config["epochs"] == 10000
         assert "block_size" in config
-        assert "embedding_dim" in config
+        assert "n_embd" in config
 
-    def test_config_has_required_keys(self) -> None:
+    @patch("fine_tune_micro_gpt._find_best_checkpoint")
+    @patch("fine_tune_micro_gpt.load_config")
+    def test_config_has_required_keys(
+        self, mock_load_config: MagicMock, mock_find_checkpoint: MagicMock
+    ) -> None:
         """Test config has all required keys.
 
         Example:
@@ -423,13 +449,30 @@ class TestConfiguration:
             >>> all(k in config for k in ['epochs', 'lr', 'device'])
             True
         """
+        mock_cfg = MagicMock()
+        mock_cfg.block_size = 1024
+        mock_cfg.n_embd = 1024
+        mock_cfg.n_head = 16
+        mock_cfg.n_layer = 24
+        mock_cfg.dropout = 0.1
+        mock_cfg.batch_size = 4
+        mock_cfg.finetune_lr = 1e-5
+        mock_cfg.finetune_epochs = 10000
+        mock_cfg.finetune_eval_interval = 100
+        mock_cfg.finetune_eval_iters = 50
+        mock_cfg.finetune_max_tokens = 20000000
+        mock_cfg.finetune_temperature = 0.7
+        mock_cfg.finetune_max_new_tokens = 150
+        mock_cfg.finetune_top_p = 0.9
+        mock_load_config.return_value = mock_cfg
+        mock_find_checkpoint.return_value = "checkpoints/best_val.pt"
         config = _create_config()
         required_keys = [
             "checkpoint_path",
             "block_size",
-            "embedding_dim",
-            "n_heads",
-            "n_layers",
+            "n_embd",
+            "n_head",
+            "n_layer",
             "dropout",
             "batch_size",
             "lr",
@@ -449,7 +492,11 @@ class TestIntegration:
         >>> pytest.main([__file__, "::TestIntegration", "-v"])
     """
 
-    def test_full_config_creation(self) -> None:
+    @patch("fine_tune_micro_gpt._find_best_checkpoint")
+    @patch("fine_tune_micro_gpt.load_config")
+    def test_full_config_creation(
+        self, mock_load_config: MagicMock, mock_find_checkpoint: MagicMock
+    ) -> None:
         """Test full configuration creation workflow.
 
         Example:
@@ -457,30 +504,71 @@ class TestIntegration:
             >>> isinstance(config['device'], str)
             True
         """
+        mock_cfg = MagicMock()
+        mock_cfg.block_size = 1024
+        mock_cfg.n_embd = 1024
+        mock_cfg.n_head = 16
+        mock_cfg.n_layer = 24
+        mock_cfg.dropout = 0.1
+        mock_cfg.batch_size = 4
+        mock_cfg.finetune_lr = 1e-5
+        mock_cfg.finetune_epochs = 10000
+        mock_cfg.finetune_eval_interval = 100
+        mock_cfg.finetune_eval_iters = 50
+        mock_cfg.finetune_max_tokens = 20000000
+        mock_cfg.finetune_temperature = 0.7
+        mock_cfg.finetune_max_new_tokens = 150
+        mock_cfg.finetune_top_p = 0.9
+        mock_load_config.return_value = mock_cfg
+        mock_find_checkpoint.return_value = "checkpoints/best_val.pt"
         config = _create_config()
         assert isinstance(config["device"], str)
         assert config["device"] in ["cuda", "mps", "cpu"]
 
-    def test_model_creation_with_config(self, device) -> None:
+    @patch("fine_tune_micro_gpt._find_best_checkpoint")
+    @patch("fine_tune_micro_gpt.load_config")
+    def test_model_creation_with_config(
+        self,
+        mock_load_config: MagicMock,
+        mock_find_checkpoint: MagicMock,
+        device,
+    ) -> None:
         """Test creating model from config.
 
         Example:
             >>> config = _create_config()
-            >>> model = _create_model_architecture(50257, config['embedding_dim'], config['block_size'], config['n_heads'], config['n_layers'], config['dropout'], "cpu")
-            >>> isinstance(model, MicroGPT)
+            >>> model = _create_model_architecture(50257, config['n_embd'], config['block_size'], config['n_head'], config['n_layer'], config['dropout'], "cpu")
+            >>> isinstance(model, GPT2)
             True
         """
+        mock_cfg = MagicMock()
+        mock_cfg.block_size = 64
+        mock_cfg.n_embd = 128
+        mock_cfg.n_head = 4
+        mock_cfg.n_layer = 2
+        mock_cfg.dropout = 0.1
+        mock_cfg.batch_size = 4
+        mock_cfg.finetune_lr = 1e-5
+        mock_cfg.finetune_epochs = 10000
+        mock_cfg.finetune_eval_interval = 100
+        mock_cfg.finetune_eval_iters = 50
+        mock_cfg.finetune_max_tokens = 20000000
+        mock_cfg.finetune_temperature = 0.7
+        mock_cfg.finetune_max_new_tokens = 150
+        mock_cfg.finetune_top_p = 0.9
+        mock_load_config.return_value = mock_cfg
+        mock_find_checkpoint.return_value = "checkpoints/best_val.pt"
         config = _create_config()
         model = _create_model_architecture(
             50257,
-            config["embedding_dim"],
+            config["n_embd"],
             config["block_size"],
-            config["n_heads"],
-            config["n_layers"],
+            config["n_head"],
+            config["n_layer"],
             config["dropout"],
             device,
         )
-        assert isinstance(model, MicroGPT)
+        assert isinstance(model, GPT2)
 
 
 if __name__ == "__main__":

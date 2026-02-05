@@ -14,21 +14,22 @@ This tutorial will discuss debugging sizeof operator.
 
 # MicroGPT
 
-> A production-ready, fully type-annotated GPT implementation from scratch in PyTorch.
+> A production-ready, fully type-annotated GPT-2 implementation from scratch in PyTorch.
 
-MicroGPT is a clean, educational implementation of the GPT (Generative Pre-trained Transformer) architecture built from first principles with detailed explanations and comprehensive testing.
+MicroGPT is a clean, educational implementation of the GPT-2 Medium architecture (355M parameters) built from first principles with detailed explanations and comprehensive testing.
 
 ## 🎯 Core Files
 
 ### Configuration (Single Source of Truth)
 - **config.json** - All hyperparameters (architecture, training, fine-tuning)
-- **config.py** - Loads config.json into typed Config dataclass
+- **config.py** - Loads config.json into typed GPTConfig dataclass
 
 ### Model Implementation
-- **micro_gpt.py** (750+ lines) - Complete GPT implementation
+- **micro_gpt.py** (800+ lines) - Complete GPT-2 implementation
   - ✅ **100% Type Annotated** - Full type hints
   - ✅ **Production Ready** - Clean, maintainable code
-  - Components: `SelfAttentionHead`, `MultiHeadAttention`, `FeedForward`, `Block`, `MicroGPT`
+  - ✅ **GPT-2 Medium Architecture** - 355M parameters
+  - Components: `LayerNorm`, `CausalSelfAttention`, `FeedForward`, `TransformerBlock`, `GPT2`
 
 ### Training Pipeline
 - **main.py** - Pre-training on OpenWebText dataset (GPT-2 tokenizer)
@@ -37,12 +38,12 @@ MicroGPT is a clean, educational implementation of the GPT (Generative Pre-train
 - **device.py** - Device detection (CUDA/MPS/CPU)
 
 ### Testing
-- **test_micro_gpt.py** (2,669 lines) - 65 tests, 99% coverage
-- **test_fine_tune_micro_gpt.py** - 39 tests for fine-tuning
-- **test_inference_micro_gpt.py** - 42 tests for inference
+- **test_micro_gpt.py** (2,715 lines) - 65 tests, 99% coverage
+- **test_fine_tune_micro_gpt.py** - 23 tests for fine-tuning
+- **test_inference_micro_gpt.py** - 34 tests for inference
 
 ### Documentation
-- **MicroGPT_Tutorial.pdf** - Complete transformer architecture tutorial
+- **GPT2_Tutorial.pdf** - Complete transformer architecture tutorial
 - **README.md** - This file
 - **FILES.md** - Complete file inventory
 
@@ -80,9 +81,9 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-- Loads 800k examples from OpenWebText dataset
+- Loads 20M examples from OpenWebText dataset
 - Uses GPT-2 BPE tokenizer (vocab size: 50,257)
-- Trains for 150k steps with cosine LR schedule
+- Trains for 300k steps with cosine LR schedule
 - Saves checkpoint to `checkpoints/best_val.pt` (overwrites with better loss)
 
 **2. Fine-tuning for Chatbot** (adds conversational abilities)
@@ -90,7 +91,7 @@ python main.py
 python fine_tune_micro_gpt.py
 ```
 - Loads pre-trained checkpoint from step 1
-- Fine-tunes on 10M tokens from Stanford Human Preferences dataset
+- Fine-tunes on 20M tokens from Stanford Human Preferences dataset
 - Adds professional identity training ("I am MicroGPT, created by Kevin Thomas")
 - Saves fine-tuned checkpoint to `checkpoints/finetuned_best_val.pt` (overwrites with better loss)
 
@@ -100,12 +101,12 @@ python inference_micro_gpt.py
 ```
 - Loads fine-tuned checkpoint from step 2
 - Provides interactive chat interface
-- Professional, consistent responses (temperature=0.2)
+- Professional, consistent responses (temperature=0.7, top_p=0.9)
 
 ### Direct Model Usage
 
 ```python
-from micro_gpt import MicroGPT
+from micro_gpt import GPT2, GPT2Config
 from config import load_config
 import torch
 import tiktoken
@@ -113,30 +114,32 @@ import tiktoken
 # Load config
 cfg = load_config("config.json")
 
-# Create model with config params
-model = MicroGPT(
-    vocab_size=50257,  # GPT-2 tokenizer
-    embedding_dim=cfg.embedding_dim,
-    block_size=cfg.block_size,
-    n_heads=cfg.n_heads,
-    n_layers=cfg.n_layers,
-    dropout=cfg.dropout
+# Create model with GPT-2 Medium config
+config = GPT2Config(
+    block_size=cfg.block_size,      # 1024
+    vocab_size=cfg.vocab_size,      # 50257 (GPT-2 tokenizer)
+    n_layer=cfg.n_layer,            # 24
+    n_head=cfg.n_head,              # 16
+    n_embd=cfg.n_embd,              # 1024
+    dropout=cfg.dropout,            # 0.1
+    bias=cfg.bias,                  # True
 )
+model = GPT2(config)
 
 # Generate text
 tokenizer = tiktoken.get_encoding("gpt2")
 context_tokens = tokenizer.encode("The quick brown")
 context = torch.tensor([context_tokens])
-output = model.generate(context, max_new_tokens=50, temperature=0.8)
+output = model.generate(context, max_new_tokens=50, temperature=0.7, top_p=0.9)
 print(tokenizer.decode(output[0].tolist()))
 ```
 
 ### View Documentation
 
 ```python
-from micro_gpt import MicroGPT
-help(MicroGPT)              # View class documentation
-help(MicroGPT.generate)     # View method documentation
+from micro_gpt import GPT2
+help(GPT2)              # View class documentation
+help(GPT2.generate)     # View method documentation
 ```
 
 ## 🧪 Testing
@@ -191,7 +194,7 @@ TOTAL                 521      1    99%
 
 ## 📖 Tutorial
 
-The **MicroGPT_Tutorial.pdf** provides a comprehensive guide to understanding GPT from scratch. It's designed for high school students and beginners, covering:
+The **GPT2_Tutorial.pdf** provides a comprehensive guide to understanding GPT from scratch. It's designed for high school students and beginners, covering:
 
 1. **Introduction** - What is GPT and how language models work
 2. **Tokenization** - Breaking text into tokens
@@ -216,46 +219,47 @@ python convert_tutorial_to_pdf.py
 
 ### Components
 
-| Component            | Purpose                          |
-| -------------------- | -------------------------------- |
-| `SelfAttentionHead`  | Single causal attention head     |
-| `MultiHeadAttention` | Multiple heads in parallel       |
-| `FeedForward`        | MLP with 4x expansion            |
-| `Block`              | Transformer block with residuals |
-| `MicroGPT`           | Complete language model          |
+| Component             | Purpose                           |
+| --------------------- | --------------------------------- |
+| `LayerNorm`           | Pre-LayerNorm (GPT-2 style)       |
+| `CausalSelfAttention` | Fused multi-head causal attention |
+| `FeedForward`         | MLP with 4x expansion and GELU    |
+| `TransformerBlock`    | Pre-LN transformer block          |
+| `GPT2`                | Complete GPT-2 language model     |
 
 ### Current Configuration (config.json)
 
-**Architecture:**
+**Architecture (GPT-2 Medium):**
 - `vocab_size`: 50257 (GPT-2 tokenizer)
-- `embedding_dim`: 896
-- `block_size`: 256
-- `n_heads`: 14
-- `n_layers`: 16
-- `dropout`: 0.05
-- **Parameters:** ~150M (~600MB)
+- `n_embd`: 1024
+- `block_size`: 1024
+- `n_head`: 16
+- `n_layer`: 24
+- `dropout`: 0.1
+- **Parameters:** ~355M (~1.4GB)
 
 **Pre-training (main.py):**
-- Dataset: OpenWebText (800k examples)
-- Batch size: 8
-- Learning rate: 6e-4 → 6e-5 (cosine decay)
+- Dataset: OpenWebText (20M examples)
+- Batch size: 4
+- Learning rate: 3e-4 → 3e-5 (cosine decay)
 - Warmup steps: 2000
-- Training steps: 150,000
+- Training steps: 300,000
 
 **Fine-tuning (fine_tune_micro_gpt.py):**
-- Dataset: Stanford Human Preferences (10M tokens)
+- Dataset: Stanford Human Preferences (20M tokens)
 - Learning rate: 1e-5
-- Epochs: 5000
-- Temperature: 0.2 (professional responses)
-- Max new tokens: 30
+- Epochs: 10,000
+- Temperature: 0.7 (balanced responses)
+- Top-p: 0.9 (nucleus sampling)
+- Max new tokens: 150
 
 ### Memory Usage
 
 | Config                | Parameters | Memory |
 | --------------------- | ---------- | ------ |
-| Current (d=896, L=16) | ~150M      | ~30 GB |
-| Small (d=512, L=8)    | ~45M       | ~8 GB  |
-| Large (d=1024, L=24)  | ~300M      | ~40 GB |
+| GPT-2 Small (n=768)   | ~124M      | ~16 GB |
+| GPT-2 Medium (n=1024) | ~355M      | ~40 GB |
+| GPT-2 Large (n=1280)  | ~774M      | ~60 GB |
 
 **Note:** All parameters are configurable in `config.json` - single source of truth for the entire project.
 

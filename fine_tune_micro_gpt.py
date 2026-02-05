@@ -1,7 +1,7 @@
 """
-Fine-tune MicroGPT on conversational dataset.
+Fine-tune GPT-2 on conversational dataset.
 
-This module provides functionality to fine-tune a pre-trained MicroGPT model
+This module provides functionality to fine-tune a pre-trained GPT-2 model
 on conversational data for chatbot applications.
 
 Author: Kevin Thomas (ket189@pitt.edu)
@@ -9,13 +9,18 @@ License: MIT
 """
 
 import os
-from typing import Tuple, List, Optional
+from typing import Tuple, List
 from datasets import load_dataset
 import tiktoken
 import torch
-import torch.nn as nn
 from config import load_config
-from micro_gpt import MicroGPT, get_batch, save_checkpoint, _train_step, _eval_model
+from micro_gpt import (
+    GPT2,
+    GPT2Config,
+    save_checkpoint,
+    _train_step,
+    _eval_model,
+)
 
 
 def _load_tokenizer():
@@ -221,61 +226,63 @@ def load_conversational_data(
 
 def _create_model_architecture(
     vocab_size: int,
-    embedding_dim: int,
+    n_embd: int,
     block_size: int,
-    n_heads: int,
-    n_layers: int,
+    n_head: int,
+    n_layer: int,
     dropout: float,
     device: str,
-) -> MicroGPT:
-    """Create MicroGPT model with specified architecture.
+) -> GPT2:
+    """Create GPT-2 model with specified architecture.
 
     Args:
         vocab_size: Vocabulary size.
-        embedding_dim: Model embedding dimension.
+        n_embd: Model embedding dimension.
         block_size: Context window size.
-        n_heads: Number of attention heads.
-        n_layers: Number of transformer blocks.
+        n_head: Number of attention heads.
+        n_layer: Number of transformer blocks.
         dropout: Dropout rate.
         device: Device to load model on.
 
     Returns:
-        MicroGPT model instance.
+        GPT2 model instance.
 
     Example:
         >>> model = _create_model_architecture(256, 128, 64, 4, 2, 0.1, "cpu")
-        >>> isinstance(model, MicroGPT)
+        >>> isinstance(model, GPT2)
         True
     """
-    return MicroGPT(
-        vocab_size=vocab_size,
-        embedding_dim=embedding_dim,
+    config = GPT2Config(
         block_size=block_size,
-        n_heads=n_heads,
-        n_layers=n_layers,
+        vocab_size=vocab_size,
+        n_layer=n_layer,
+        n_head=n_head,
+        n_embd=n_embd,
         dropout=dropout,
-    ).to(device)
+        bias=True,
+    )
+    return GPT2(config).to(device)
 
 
 def load_pretrained_model(
     checkpoint_path: str,
     vocab_size: int,
-    embedding_dim: int,
+    n_embd: int,
     block_size: int,
-    n_heads: int,
-    n_layers: int,
+    n_head: int,
+    n_layer: int,
     dropout: float,
     device: str,
-) -> Tuple[MicroGPT, torch.optim.Optimizer]:
+) -> Tuple[GPT2, torch.optim.Optimizer]:
     """Load pre-trained model from checkpoint.
 
     Args:
         checkpoint_path: Path to checkpoint file.
         vocab_size: Vocabulary size.
-        embedding_dim: Model embedding dimension.
+        n_embd: Model embedding dimension.
         block_size: Context window size.
-        n_heads: Number of attention heads.
-        n_layers: Number of transformer blocks.
+        n_head: Number of attention heads.
+        n_layer: Number of transformer blocks.
         dropout: Dropout rate.
         device: Device to load model on.
 
@@ -287,12 +294,12 @@ def load_pretrained_model(
         ...     "checkpoints/best_val.pt",
         ...     50257, 896, 256, 14, 16, 0.05, "cpu"
         ... )
-        >>> isinstance(model, MicroGPT)
+        >>> isinstance(model, GPT2)
         True
     """
     print(f"Loading pre-trained model from {checkpoint_path}...")
     model = _create_model_architecture(
-        vocab_size, embedding_dim, block_size, n_heads, n_layers, dropout, device
+        vocab_size, n_embd, block_size, n_head, n_layer, dropout, device
     )
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -324,7 +331,7 @@ def _should_save(val_loss: float, best_loss: float) -> bool:
 def _handle_checkpoint(
     val_loss: float,
     best_val_loss: float,
-    model: MicroGPT,
+    model: GPT2,
     optimizer: torch.optim.Optimizer,
     step: int,
 ) -> Tuple[float, bool]:
@@ -341,7 +348,8 @@ def _handle_checkpoint(
         Tuple of (updated best_val_loss, is_best).
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> opt = torch.optim.AdamW(model.parameters(), lr=1e-5)
         >>> best, is_best = _handle_checkpoint(2.5, 3.0, model, opt, 100)
         >>> is_best
@@ -360,7 +368,7 @@ def _handle_checkpoint(
 
 
 def fine_tune_model(
-    model: MicroGPT,
+    model: GPT2,
     optimizer: torch.optim.Optimizer,
     train_data: torch.Tensor,
     val_data: torch.Tensor,
@@ -369,7 +377,7 @@ def fine_tune_model(
     """Fine-tune model on conversational data with checkpointing.
 
     Args:
-        model: Pre-trained MicroGPT model.
+        model: Pre-trained GPT-2 model.
         optimizer: Optimizer for training.
         train_data: Training data tensor.
         val_data: Validation data tensor.
@@ -379,7 +387,8 @@ def fine_tune_model(
         Best validation loss achieved during fine-tuning.
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
         >>> train = torch.randint(0, 256, (10000,))
         >>> val = torch.randint(0, 256, (1000,))
@@ -449,28 +458,31 @@ def _extract_assistant_response(full_text: str) -> str:
 
 
 def generate_chat_response(
-    model: MicroGPT,
+    model: GPT2,
     tokenizer,
     prompt: str,
     max_tokens: int,
     device: str,
     temp: float = 0.3,
+    top_p: float = 0.9,
 ) -> str:
     """Generate chatbot response to user prompt.
 
     Args:
-        model: Fine-tuned MicroGPT model.
+        model: Fine-tuned GPT-2 model.
         tokenizer: Tokenizer with encode/decode methods.
         prompt: User input text.
         max_tokens: Maximum tokens to generate.
         device: Device model is on.
         temp: Sampling temperature.
+        top_p: Nucleus sampling probability threshold.
 
     Returns:
         Generated response text.
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> tokenizer = _load_tokenizer()
         >>> response = generate_chat_response(
         ...     model, tokenizer, "Hello", 10, "cpu", 0.7
@@ -483,7 +495,9 @@ def generate_chat_response(
     tokens = tokenizer.encode(formatted_prompt)
     context = torch.tensor([tokens], dtype=torch.long).to(device)
     with torch.no_grad():
-        output = model.generate(context, max_new_tokens=max_tokens, temperature=temp)
+        output = model.generate(
+            context, max_new_tokens=max_tokens, temperature=temp, top_p=top_p
+        )
     full_text = tokenizer.decode(output[0].tolist())
     return _extract_assistant_response(full_text)
 
@@ -529,9 +543,9 @@ def _create_config() -> dict:
     return {
         "checkpoint_path": best_checkpoint,
         "block_size": cfg.block_size,
-        "embedding_dim": cfg.embedding_dim,
-        "n_heads": cfg.n_heads,
-        "n_layers": cfg.n_layers,
+        "n_embd": cfg.n_embd,
+        "n_head": cfg.n_head,
+        "n_layer": cfg.n_layer,
         "dropout": cfg.dropout,
         "batch_size": cfg.batch_size,
         "lr": cfg.finetune_lr,
@@ -539,12 +553,15 @@ def _create_config() -> dict:
         "eval_interval": cfg.finetune_eval_interval,
         "eval_iters": cfg.finetune_eval_iters,
         "max_tokens": cfg.finetune_max_tokens,
+        "finetune_temperature": cfg.finetune_temperature,
+        "finetune_max_new_tokens": cfg.finetune_max_new_tokens,
+        "finetune_top_p": cfg.finetune_top_p,
         "device": device,
     }
 
 
 def _run_fine_tuning(
-    model: MicroGPT,
+    model: GPT2,
     optimizer: torch.optim.Optimizer,
     train_data: torch.Tensor,
     val_data: torch.Tensor,
@@ -563,7 +580,8 @@ def _run_fine_tuning(
         Best validation loss achieved.
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> opt = torch.optim.AdamW(model.parameters(), lr=1e-5)
         >>> train, val = torch.randint(0, 256, (10000,)), torch.randint(0, 256, (1000,))
         >>> cfg = {'epochs': 10, 'eval_interval': 5, 'eval_iters': 2, 'block_size': 64, 'batch_size': 4, 'device': 'cpu'}
@@ -579,7 +597,7 @@ def _run_fine_tuning(
     return best_loss
 
 
-def _test_chat_responses(model: MicroGPT, tokenizer, device: str, config: dict) -> None:
+def _test_chat_responses(model: GPT2, tokenizer, device: str, config: dict) -> None:
     """Test model with sample chat prompts.
 
     Args:
@@ -592,9 +610,10 @@ def _test_chat_responses(model: MicroGPT, tokenizer, device: str, config: dict) 
         None
 
     Example:
-        >>> model = MicroGPT(256, 128, 64, 4, 2, 0.1)
+        >>> cfg = GPT2Config(block_size=64, vocab_size=256, n_layer=2, n_head=4, n_embd=128)
+        >>> model = GPT2(cfg)
         >>> tokenizer = _load_tokenizer()
-        >>> cfg = {'finetune_temperature': 0.2, 'finetune_max_new_tokens': 30}
+        >>> cfg = {'finetune_temperature': 0.2, 'finetune_max_new_tokens': 30, 'finetune_top_p': 0.9}
         >>> _test_chat_responses(model, tokenizer, "cpu", cfg)
     """
     print()
@@ -618,6 +637,7 @@ def _test_chat_responses(model: MicroGPT, tokenizer, device: str, config: dict) 
             config["finetune_max_new_tokens"],
             device,
             temp=config["finetune_temperature"],
+            top_p=config["finetune_top_p"],
         )
         print(f"🤖 Assistant: {response}")
 
@@ -641,10 +661,10 @@ def main():
     model, optimizer = load_pretrained_model(
         config["checkpoint_path"],
         vocab_size,
-        config["embedding_dim"],
+        config["n_embd"],
         config["block_size"],
-        config["n_heads"],
-        config["n_layers"],
+        config["n_head"],
+        config["n_layer"],
         config["dropout"],
         config["device"],
     )
